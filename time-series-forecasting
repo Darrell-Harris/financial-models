@@ -1,0 +1,57 @@
+# time_series_forecasting.py
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima.model import ARIMA
+
+# Load Data
+# Replace with your own data loading mechanism
+np.random.seed(42)
+date_range = pd.date_range(start='1/1/2020', periods=500, freq='D')
+data = pd.DataFrame(np.random.randn(500).cumsum(), index=date_range, columns=['Close'])
+
+# Function to perform ADF test
+def adf_test(series):
+    result = adfuller(series)
+    print('ADF Statistic:', result[0])
+    print('p-value:', result[1])
+    print('Critical Values:', result[4])
+    if result[1] < 0.05:
+        print("Reject the null hypothesis - the series is stationary")
+    else:
+        print("Fail to reject the null hypothesis - the series is non-stationary")
+    return result[1]
+
+# Check stationarity
+p_value = adf_test(data['Close'])
+
+# Differencing if non-stationary
+if p_value >= 0.05:
+    data_diff = data['Close'].diff().dropna()
+else:
+    data_diff = data['Close']
+
+# Fit ARIMA model
+model = ARIMA(data['Close'], order=(5, 1, 0))
+model_fit = model.fit()
+
+# Forecasting
+forecast_steps = 30
+forecast_result = model_fit.get_forecast(steps=forecast_steps)
+forecast = forecast_result.predicted_mean
+conf_int = forecast_result.conf_int()
+
+# Create forecast DataFrame
+forecast_dates = pd.date_range(start=data.index[-1], periods=forecast_steps + 1, closed='right')
+forecast_df = pd.DataFrame({'Forecast': forecast}, index=forecast_dates)
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(data['Close'], label='Historical')
+plt.plot(forecast_df, label='Forecast')
+plt.fill_between(forecast_df.index, conf_int.iloc[:, 0], conf_int.iloc[:, 1], color='k', alpha=0.1)
+plt.title('Time Series Forecast')
+plt.legend()
+plt.show()
